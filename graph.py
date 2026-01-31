@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Annotated
 from langchain.chat_models import init_chat_model
 from dotenv import load_dotenv
 import json
+import re
 
 load_dotenv()
 
@@ -18,11 +19,10 @@ class NodeData:
             "tiers": []
         }
 
-        # ========= Market Ready Params =========
-        LOSS_THRESHOLD = 2.0      # currentAPY < avgAPY - threshold => weak
-        MIN_ALLOC = 5.0           # avoid fully killing strategy
-        MAX_ALLOC = 80.0          # avoid putting everything into one
-        SMOOTHING_ALPHA = 0.35    # 0.1 = slow, 0.5 = fast rebalancing
+        LOSS_THRESHOLD = 2.0   
+        MIN_ALLOC = 5.0           
+        MAX_ALLOC = 80.0          
+        SMOOTHING_ALPHA = 0.35   
 
         for tier in tiers:
             strategies = tier.get("strategies", [])
@@ -50,11 +50,9 @@ class NodeData:
                     "avgAPY": avg_apy
                 })
 
-            # ===== Step 1: target allocation from scores (sum=100) =====
             total_score = sum(x["score"] for x in scored)
             target_allocs = [(x["score"] / total_score) * 100 for x in scored]
 
-            # ===== Step 2: smooth rebalance (avoid 10-min jitter) =====
             smooth_allocs = []
             for i, x in enumerate(scored):
                 old_alloc = float(x["strategy"].get("currentAllocation", 0))
@@ -63,27 +61,21 @@ class NodeData:
                 new_alloc = old_alloc + SMOOTHING_ALPHA * (target - old_alloc)
                 smooth_allocs.append(new_alloc)
 
-            # ===== Step 3: clamp allocations =====
             clamped = [min(max(a, MIN_ALLOC), MAX_ALLOC) for a in smooth_allocs]
 
-            # ===== Step 4: ensure sum = 100% exactly =====
             total_clamped = sum(clamped)
             if total_clamped == 0:
-                # fallback: equal split
                 final_allocs = [100.0 / len(clamped)] * len(clamped)
             else:
                 final_allocs = [(a / total_clamped) * 100 for a in clamped]
 
-            # ===== Step 5: Fix rounding drift (ensure exact 100) =====
             rounded = [round(a, 2) for a in final_allocs]
             drift = round(100.0 - sum(rounded), 2)
 
-            # Add drift to the best strategy (highest score)
             if abs(drift) > 0:
                 best_idx = max(range(len(scored)), key=lambda i: scored[i]["score"])
                 rounded[best_idx] = round(rounded[best_idx] + drift, 2)
 
-            # ===== Step 6: Build updated strategies =====
             updated_strategies = []
             for i, x in enumerate(scored):
                 s = x["strategy"]
@@ -118,30 +110,45 @@ class NodeData:
         
 
     def generateScore(self, QA: Dict[str, Any]) -> Dict[str, Any]:
+        print("Generating Risk Score for QA:", QA)
         SYSTEM_PROMPT = f"""You are a financial risk assessment expert.
             Your task is to evaluate the Question and Answer (QA) data provided: {QA}
             Those questions where designed to find out the risk level of the user.
             Based on the answers generate :
-             - Low risk score if the answers indicate a conservative approach to investments.Generate score between 0%-100\%
-             - Medium risk score if the answers indicate a balanced approach to investments. Generate score between 0%-100\%
-             - High risk score if the answers indicate an aggressive approach to investments. Generate score between 0%-100\%
-             
-             Provide the risk score as a JSON object with the key 'risk_score'.
-             {
-               "risk_score": [
-                 "low_risk": <calculated_score>,
-                 "medium_risk": "<calculated_score>",
-                 "high_risk": "<calculated_score>"
-               ]
-             }
-             """
+             - Low risk score if the answers indicate a conservative approach to investments.
+             - Medium risk score if the answers indicate a balanced approach to investments. 
+             - High risk score if the answers indicate an aggressive approach to investments.
+
+
+            Remember the risk score you are generating should follow this:
+                low_risk + medium_risk + high_risk = 100
+
+            Remember that the risk score should be allocated based on the answers provided in the QA data.             
+            Provide the risk score as a JSON object with the key 'risk_score'.
+            {{
+  "risk_score": {{
+    "low_risk": 0,
+    "medium_risk": 0,
+    "high_risk": 0
+  }}
+}}
+
+Rules:
+- All values must be integers
+- Sum must be exactly 100
+            """
             
             
         risk_score = self.llm.invoke(SYSTEM_PROMPT)
-        return risk_score
+        text = risk_score.content
+
+        match = re.search(r"\{[\s\S]*\}", text)
+        if not match:
+            return {"error": "No JSON found in LLM response", "raw": text}
+
+        return json.loads(match.group())
 
 
-# ======= Example Usage =======
 
 node = NodeData()
 

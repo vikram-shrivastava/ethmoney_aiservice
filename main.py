@@ -1,7 +1,7 @@
 from fastapi import FastAPI 
 from graph import NodeData
 from fastapi.middleware.cors import CORSMiddleware
-from schemas import mainRequest
+from schemas import mainRequest,riskScoreSchemaRequest
 import uvicorn
 app=FastAPI()
 
@@ -20,9 +20,11 @@ def allocate(req:mainRequest):
     response = node_data.allocate_funds(base_apy_dict)
     return response
     
-@app.post("/generate_riskscore")
-def generate_riskscore():
-    return {"message":"Risk Score Generated"}
+@app.post("/generate-risk-score")
+def generate_riskscore(req: riskScoreSchemaRequest):
+    node_data=NodeData()
+    response = node_data.generateScore(req.QA)
+    return response
 
 
 if __name__=="__main__":

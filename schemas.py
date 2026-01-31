@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict
 
 class riskScoreSchemaRequest(BaseModel):
-    QA:dict
+    QA: Dict[str, str] 
 
 class riskScoreSchemaResponse(BaseModel):
     risk_score:dict
