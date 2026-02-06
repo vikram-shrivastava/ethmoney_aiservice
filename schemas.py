@@ -49,5 +49,3 @@ class tradeBehaviorRequest(BaseModel):
     timeSinceDropMin: int
     tradesLast24h: int
 
-
-ChatbotRequest.model_rebuild()
