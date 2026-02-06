@@ -3,3 +3,8 @@ venv/
 .env
 pycache/
 __pycache__/
+~$behaviour_data.xlsx
+~$panicselldata.xlsx
+behaviour_data.xlsx
+panicselldata.xlsx
+predict_single_trade.py

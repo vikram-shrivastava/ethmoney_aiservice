@@ -126,16 +126,16 @@ class NodeData:
             Remember that the risk score should be allocated based on the answers provided in the QA data.             
             Provide the risk score as a JSON object with the key 'risk_score'.
             {{
-  "risk_score": {{
-    "low_risk": 0,
-    "medium_risk": 0,
-    "high_risk": 0
-  }}
-}}
+                "risk_score": {{
+                    "low_risk": 0,
+                    "medium_risk": 0,
+                    "high_risk": 0
+                }}
+            }}
 
-Rules:
-- All values must be integers
-- Sum must be exactly 100
+            Rules:
+            - All values must be integers
+            - Sum must be exactly 100
             """
             
             
@@ -265,5 +265,5 @@ allocation_result = node.allocate_funds(
         ]
     }
 )
-print("=== Allocation Result ===")
-print(json.dumps(allocation_result, indent=2))
+# print("=== Allocation Result ===")
+# print(json.dumps(allocation_result, indent=2))
