@@ -37,6 +37,10 @@ def generate_riskscore(req: riskScoreSchemaRequest):
     response = node_data.generateScore(req.QA)
     return response
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 
 @app.post("/analyze-behaviour")
 def analyze_behaviour(req: tradeBehaviorRequest):
